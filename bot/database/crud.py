@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from bot.database.models import Candidate, Vacancy, Screening, ScreeningStatus
+from bot.database.models import Candidate, Vacancy, Screening, ScreeningStatus, InterviewSlot
 
 
 # --- Whitelist для безопасного обновления полей скрининга ---
@@ -13,6 +13,7 @@ SCREENING_ALLOWED_FIELDS = {
     "portfolio_url",
     "status",
     "vacancy_id",
+    "interview_slot_id",
 }
 
 
@@ -142,3 +143,83 @@ async def create_vacancy(
 async def get_active_vacancies(session: AsyncSession) -> list[Vacancy]:
     result = await session.execute(select(Vacancy).where(Vacancy.is_active == True))
     return list(result.scalars().all())
+
+
+# --- Interview Slots ---
+
+async def create_interview_slot(
+    session: AsyncSession,
+    date: datetime,
+    max_slots: int = 5,
+) -> InterviewSlot:
+    """Создает новый слот для собеседования."""
+    slot = InterviewSlot(date=date, max_slots=max_slots)
+    session.add(slot)
+    await session.flush()
+    return slot
+
+
+async def get_available_slots(session: AsyncSession) -> list[InterviewSlot]:
+    """Возвращает список активных слотов, где есть свободные места."""
+    result = await session.execute(
+        select(InterviewSlot)
+        .where(
+            InterviewSlot.is_active == True,
+            InterviewSlot.booked_slots < InterviewSlot.max_slots,
+            InterviewSlot.date > datetime.now(timezone.utc),
+        )
+        .order_by(InterviewSlot.date.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_all_slots(session: AsyncSession) -> list[InterviewSlot]:
+    """Возвращает все слоты (для админки)."""
+    result = await session.execute(
+        select(InterviewSlot).order_by(InterviewSlot.date.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def book_slot(session: AsyncSession, slot_id: int) -> InterviewSlot | None:
+    """
+    Бронирует место в слоте.
+    Возвращает обновленный слот или None, если мест нет.
+    """
+    result = await session.execute(
+        select(InterviewSlot).where(InterviewSlot.id == slot_id)
+    )
+    slot = result.scalar_one_or_none()
+    
+    if not slot or not slot.is_active:
+        return None
+    
+    if slot.is_full:
+        return None
+    
+    slot.booked_slots += 1
+    await session.flush()
+    return slot
+
+
+async def get_slot_by_id(session: AsyncSession, slot_id: int) -> InterviewSlot | None:
+    """Получает слот по ID."""
+    result = await session.execute(
+        select(InterviewSlot).where(InterviewSlot.id == slot_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_screening_with_details(session: AsyncSession, screening_id: int):
+    """Получает скрининг с кандидатом, вакансией и слотом."""
+    from sqlalchemy.orm import joinedload
+    result = await session.execute(
+        select(Screening)
+        .options(
+            joinedload(Screening.candidate),
+            joinedload(Screening.vacancy),
+            joinedload(Screening.interview_slot),
+        )
+        .where(Screening.id == screening_id)
+    )
+    return result.unique().scalar_one_or_none()

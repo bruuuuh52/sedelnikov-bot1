@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
 from bot.config import settings
-from bot.config_loader import get_config
+from bot.config_loader import get_config, update_interview_date_options
 from bot.database import (
     get_session,
     get_or_create_candidate,
@@ -14,6 +14,7 @@ from bot.database import (
     complete_screening,
     get_screening_with_candidate,
 )
+from bot.database.crud import book_slot, get_slot_by_id
 from bot.keyboards.dynamic import (
     build_question_keyboard,
     build_confirm_keyboard,
@@ -46,6 +47,10 @@ router = Router(name="dynamic_screening")
 
 async def _send_question(message: Message, state: FSMContext, question, candidate: Candidate):
     """Отправляет вопрос пользователю с соответствующей клавиатурой."""
+    # Если это вопрос выбора даты собеседования — обновляем варианты из БД
+    if question.id == "interview_date":
+        await update_interview_date_options()
+    
     # Сохраняем индекс текущего вопроса
     config = get_config()
     q_index = config.questions.index(question)
@@ -77,6 +82,8 @@ async def _show_confirmation(message: Message, state: FSMContext, screening: Scr
     if candidate:
         if candidate.phone:
             lines.append(f"📞 <b>Телефон:</b> <code>{candidate.phone}</code>")
+        if candidate.username:
+            lines.append(f"🔗 <b>Username:</b> @{candidate.username}")
         if candidate.email:
             lines.append(f"📧 <b>Email:</b> <code>{candidate.email}</code>")
 
@@ -178,6 +185,46 @@ async def _save_answer_and_next(message: Message, state: FSMContext, question, v
     data = await state.get_data()
     screening_id = data.get(SCREENING_ID_KEY)
 
+    # Специальная обработка для interview_date — бронируем слот
+    if question.id == "interview_date":
+        # value — это slot_id (строка)
+        slot_id = int(value)
+        async with get_session() as session:
+            slot = await book_slot(session, slot_id)
+            if not slot:
+                # Слот занят или не существует — показываем ошибку и повторно отправляем вопрос
+                await message.answer(
+                    "❌ К сожалению, места на это время уже закончились. Пожалуйста, выберите другую дату.",
+                    parse_mode="HTML",
+                )
+                # Обновляем варианты и повторно отправляем вопрос
+                await update_interview_date_options()
+                config = get_config()
+                question = config.get_question("interview_date")
+                candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
+                await _send_question(message, state, question, candidate)
+                return
+            
+            # Слот успешно забронирован — сохраняем slot_id в screening
+            await update_screening_step(session, screening_id, interview_slot_id=slot_id)
+            await session.commit()
+            
+            # Сохраняем в FSM
+            set_answer(data, question.id, slot_id)
+            await state.set_data(data)
+            
+            logger.info(f"Booked slot {slot_id} for screening {screening_id}, moving to next question")
+            
+            # Получаем кандидата для уведомления админам
+            candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
+            
+            # Отправляем уведомление админам о записи на собеседование
+            await _notify_admins_about_booking(session, screening_id, slot, candidate)
+            
+            # Следующий вопрос
+            await _next_question(message, state)
+            return
+
     # Сохраняем в FSM
     set_answer(data, question.id, value)
     await state.set_data(data)
@@ -185,11 +232,12 @@ async def _save_answer_and_next(message: Message, state: FSMContext, question, v
     # Сохраняем в БД
     async with get_session() as session:
         if question.save_to == "candidate":
-            if question.id == "contact":
-                if isinstance(value, str) and "@" in value:
-                    await update_candidate_contacts(session, message.from_user.id, email=value)
-                else:
-                    await update_candidate_contacts(session, message.from_user.id, phone=value)
+            if question.id == "phone":
+                await update_candidate_contacts(session, message.from_user.id, phone=value)
+            elif question.id == "username":
+                # username сохраняем в поле username кандидата
+                candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
+                candidate.username = value
         else:
             await update_screening_step(session, screening_id, **{question.id: value})
         await session.commit()
@@ -198,6 +246,51 @@ async def _save_answer_and_next(message: Message, state: FSMContext, question, v
 
     # Следующий вопрос
     await _next_question(message, state)
+
+
+async def _notify_admins_about_booking(session, screening_id: int, slot, candidate: Candidate):
+    """Отправляет админам уведомление о записи на собеседование."""
+    from aiogram import Bot
+    from bot.config import settings
+    from bot.config_loader import get_config
+    
+    config = get_config()
+    
+    # Получаем данные скрининга с кандидатом
+    result = await session.execute(
+        select(Screening, Candidate)
+        .outerjoin(Candidate, Screening.candidate_id == Candidate.id)
+        .where(Screening.id == screening_id)
+    )
+    row = result.first()
+    
+    if not row:
+        return
+    
+    scr, cand = row
+    
+    # Форматируем дату
+    date_str = slot.date.strftime("%d %B, %A, %H:%M")
+    available = slot.max_slots - slot.booked_slots
+    
+    admin_text = (
+        f"📅 <b>Запись на собеседование!</b>\n\n"
+        f"👤 <b>Кандидат:</b> @{cand.username or '—'}\n"
+        f"🆔 <b>TG ID:</b> <code>{cand.telegram_id}</code>\n"
+        f"📞 <b>Телефон:</b> {cand.phone or '—'}\n"
+        f"📅 <b>Дата:</b> {date_str}\n"
+        f"🪑 <b>Места:</b> {slot.booked_slots} из {slot.max_slots} (осталось {available})"
+    )
+    
+    bot = Bot(token=settings.BOT_TOKEN.get_secret_value())
+    try:
+        for admin_id in config.recipients:
+            try:
+                await bot.send_message(admin_id, admin_text, parse_mode="HTML")
+            except Exception:
+                pass
+    finally:
+        await bot.session.close()
 
 
 # Импорты для SQLAlchemy (вынесены наверх для надежности)

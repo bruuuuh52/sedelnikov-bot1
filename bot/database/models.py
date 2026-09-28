@@ -67,12 +67,40 @@ class Vacancy(Base):
         return f"<Vacancy(id={self.id}, title={self.title!r})>"
 
 
+class InterviewSlot(Base):
+    __tablename__ = "interview_slots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    date: Mapped[datetime] = mapped_column(DateTime, index=True)
+    max_slots: Mapped[int] = mapped_column(Integer, default=5)
+    booked_slots: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    screenings: Mapped[list["Screening"]] = relationship(back_populates="interview_slot")
+
+    def __repr__(self) -> str:
+        return f"<InterviewSlot(id={self.id}, date={self.date}, booked={self.booked_slots}/{self.max_slots})>"
+
+    @property
+    def available_slots(self) -> int:
+        return self.max_slots - self.booked_slots
+
+    @property
+    def is_full(self) -> bool:
+        return self.booked_slots >= self.max_slots
+
+
 class Screening(Base):
     __tablename__ = "screenings"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     candidate_id: Mapped[int] = mapped_column(ForeignKey("candidates.id", ondelete="CASCADE"), index=True)
     vacancy_id: Mapped[int | None] = mapped_column(ForeignKey("vacancies.id", ondelete="SET NULL"), nullable=True, index=True)
+    interview_slot_id: Mapped[int | None] = mapped_column(ForeignKey("interview_slots.id", ondelete="SET NULL"), nullable=True, index=True)
 
     experience_years: Mapped[int | None] = mapped_column(nullable=True)
     stack: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -91,6 +119,7 @@ class Screening(Base):
 
     candidate: Mapped["Candidate"] = relationship(back_populates="screenings")
     vacancy: Mapped["Vacancy"] = relationship(back_populates="screenings")
+    interview_slot: Mapped["InterviewSlot"] = relationship(back_populates="screenings")
 
     __table_args__ = (
         UniqueConstraint("candidate_id", "vacancy_id", name="uq_candidate_vacancy"),

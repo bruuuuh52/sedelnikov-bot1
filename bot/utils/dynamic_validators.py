@@ -7,6 +7,7 @@ from bot.config_loader import Question
 PHONE_REGEX = re.compile(r"^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$")
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 URL_REGEX = re.compile(r"^https?://.+")
+USERNAME_REGEX = re.compile(r"^@?[a-zA-Z0-9_]{3,50}$")
 
 
 def validate_answer(question: Question, text: str) -> Optional[Any]:
@@ -15,6 +16,25 @@ def validate_answer(question: Question, text: str) -> Optional[Any]:
     Возвращает нормализованное значение или None если невалидно.
     """
     text = text.strip()
+
+    # Специфичная валидация для phone
+    if question.id == "phone":
+        # Нормализуем телефон: убираем пробелы, скобки, дефисы
+        cleaned = re.sub(r"[\s\(\)\-]", "", text)
+        if PHONE_REGEX.match(cleaned):
+            # Добавляем + если нет
+            if not cleaned.startswith("+"):
+                cleaned = "+" + cleaned
+            return cleaned
+        return None
+
+    # Специфичная валидация для username
+    if question.id == "username":
+        # Убираем @ в начале если есть
+        username = text.lstrip("@")
+        if USERNAME_REGEX.match(text):
+            return username
+        return None
 
     if question.type == "contact":
         # Обрабатывается отдельно в хендлере (contact object или текст)

@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 
 from aiogram import Bot, Dispatcher
@@ -21,12 +23,39 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def run_migrations():
+    """Запускает миграции Alembic (создаёт таблицы, если их нет)."""
+    try:
+        logger.info("Running database migrations...")
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            capture_output=True,
+            text=True,
+            cwd=".",
+        )
+        if result.returncode == 0:
+            logger.info("Migrations applied successfully")
+            if result.stdout:
+                logger.debug(result.stdout)
+        else:
+            logger.error(f"Migration failed: {result.stderr}")
+            # Не падаем, пробуем create_all как fallback
+    except Exception as e:
+        logger.error(f"Error running migrations: {e}")
+
+
 @asynccontextmanager
 async def lifespan(dp: Dispatcher):
     """Lifespan для запуска/остановки."""
     # Startup
     logger.info("Starting bot...")
+    
+    # 1. Сначала миграции (создадут таблицы по схеме)
+    run_migrations()
+    
+    # 2. Потом create_all как страховка (на случай, если миграции не применились)
     await init_db()
+    
     # Загружаем конфиг скрининга
     try:
         load_config()
@@ -34,6 +63,7 @@ async def lifespan(dp: Dispatcher):
     except Exception as e:
         logger.error(f"Failed to load screening config: {e}")
         raise
+    
     logger.info("Database initialized")
 
     yield

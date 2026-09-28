@@ -89,6 +89,13 @@ def format_answer_for_display(question: Question, value: Any) -> str:
     if value is None:
         return "—"
 
+    # Для interview_date показываем label кнопки (дата на русском)
+    if question.id == "interview_date":
+        for label, val in question.options.items():
+            if val == value:
+                return label
+        return str(value)
+
     if question.type == "choice":
         # Найти label по value
         for label, val in question.options.items():

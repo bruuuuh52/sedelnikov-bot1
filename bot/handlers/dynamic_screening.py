@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 
 from bot.config import settings
-from bot.config_loader import get_config, update_interview_date_options
+from bot.config_loader import get_config, update_interview_date_options, format_date_ru
 from bot.database import (
     get_session,
     get_or_create_candidate,
@@ -270,7 +270,7 @@ async def _notify_admins_about_booking(session, screening_id: int, slot, candida
     scr, cand = row
     
     # Форматируем дату
-    date_str = slot.date.strftime("%d %B, %A, %H:%M")
+    date_str = format_date_ru(slot.date)
     available = slot.max_slots - slot.booked_slots
     
     admin_text = (

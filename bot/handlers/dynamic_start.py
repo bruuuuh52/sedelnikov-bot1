@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 
 from bot.config import settings
@@ -8,7 +8,7 @@ from bot.config_loader import get_config
 from bot.database import get_session, get_active_vacancies, get_or_create_candidate
 from bot.database.models import Screening, ScreeningStatus
 from bot.keyboards.builders import vacancy_choice_keyboard
-from bot.keyboards.dynamic import build_question_keyboard
+from bot.keyboards.dynamic import build_question_keyboard, build_consent_keyboard
 from bot.states.dynamic import ScreeningStates, QUESTION_INDEX_KEY, ANSWERS_KEY, SCREENING_ID_KEY, VACANCY_ID_KEY, CANDIDATE_ID_KEY
 from sqlalchemy import select
 
@@ -38,9 +38,26 @@ async def _get_or_create_screening(session, candidate_id: int, vacancy_id: int):
     return screening, False
 
 
+async def _show_consent(message: Message, state: FSMContext, vacancy, candidate):
+    """Показывает экран согласия на обработку персональных данных."""
+    config = get_config()
+    
+    # Получаем текст согласия из описания вакансии
+    consent_text = config.vacancy_description
+    
+    await message.answer(
+        f"👋 Привет, {message.from_user.full_name or 'друг'}!\n\n"
+        f"Ты хочешь откликнуться на вакансию: <b>{vacancy.title}</b>\n\n"
+        f"{config.vacancy_description}",
+        parse_mode="HTML",
+        reply_markup=build_consent_keyboard(),
+    )
+    await state.set_state(ScreeningStates.consent)
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    """Обработка /start — приветствие и выбор вакансии."""
+    """Обработка /start — приветствие, согласие и выбор вакансии."""
     await state.clear()
 
     config = get_config()
@@ -76,27 +93,17 @@ async def cmd_start(message: Message, state: FSMContext):
             ANSWERS_KEY: {},
         })
 
-        # Первое сообщение
         if is_resumed:
-            await message.answer(
-                f"👋 Привет, {message.from_user.full_name or 'друг'}!\n\n"
-                f"Ты уже начинал анкету для вакансии <b>{vacancy.title}</b>.\n"
-                f"Продолжим с места, где остановились.",
-                parse_mode="HTML",
-            )
+            # Если уже проходил — показываем сразу первый вопрос
+            config = get_config()
+            first_question = config.questions[0]
+            await state.set_state(ScreeningStates.answering)
+            async with get_session() as session:
+                candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
+            await _send_question(message, state, first_question, candidate)
         else:
-            await message.answer(
-                f"👋 Привет, {message.from_user.full_name or 'друг'}!\n\n"
-                f"Ты хочешь откликнуться на вакансию: <b>{vacancy.title}</b>\n\n"
-                f"{config.vacancy_description}",
-                parse_mode="HTML",
-            )
-
-        # Первый вопрос
-        config = get_config()
-        first_question = config.questions[0]
-        await state.set_state(ScreeningStates.answering)
-        await _send_question(message, state, first_question, candidate)
+            # Новый пользователь — показываем согласие
+            await _show_consent(message, state, vacancy, candidate)
         return
 
     # Несколько вакансий
@@ -164,16 +171,64 @@ async def process_vacancy_choice(callback: CallbackQuery, state: FSMContext):
             f"Продолжим с места, где остановились.",
             parse_mode="HTML",
         )
+        first_question = config.questions[0]
+        await state.set_state(ScreeningStates.answering)
+        await _send_question(callback.message, state, first_question, candidate)
     else:
+        # Новый пользователь — показываем согласие
         await callback.message.edit_text(
             f"✅ Выбрана вакансия: <b>{vacancy.title}</b>",
             parse_mode="HTML",
         )
-
-    first_question = config.questions[0]
-    await state.set_state(ScreeningStates.answering)
-    await _send_question(callback.message, state, first_question, candidate)
+        await _show_consent(callback.message, state, vacancy, candidate)
     await callback.answer()
+
+
+# --- Обработчики согласия ---
+
+@router.message(ScreeningStates.consent, F.text == "✅ Согласен, продолжить")
+async def process_consent_agree(message: Message, state: FSMContext):
+    """Пользователь согласился — переходим к первому вопросу."""
+    data = await state.get_data()
+    vacancy_id = data.get(VACANCY_ID_KEY)
+    
+    async with get_session() as session:
+        vacancies = await get_active_vacancies(session)
+        vacancy = next((v for v in vacancies if v.id == vacancy_id), None)
+        
+        if not vacancy:
+            await message.answer("❌ Вакансия не найдена. Нажми /start")
+            await state.clear()
+            return
+        
+        config = get_config()
+        first_question = config.questions[0]
+        async with get_session() as session:
+            candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
+        await state.set_state(ScreeningStates.answering)
+        await _send_question(message, state, first_question, candidate)
+
+
+@router.message(ScreeningStates.consent, F.text == "❌ Не согласен")
+async def process_consent_disagree(message: Message, state: FSMContext):
+    """Пользователь не согласился — отменяем анкету."""
+    data = await state.get_data()
+    screening_id = data.get(SCREENING_ID_KEY)
+    
+    if screening_id:
+        async with get_session() as session:
+            result = await session.execute(select(Screening).where(Screening.id == screening_id))
+            screening = result.scalar_one_or_none()
+            if screening:
+                await session.delete(screening)
+                await session.commit()
+    
+    await state.clear()
+    await message.answer(
+        "❌ Вы не дали согласие на обработку персональных данных. Анкета отменена.\n"
+        "Если передумаете — нажмите /start",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 @router.message(Command("cancel"))

@@ -5,6 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 class ScreeningStates(StatesGroup):
     """Динамические состояния на основе конфига вопросов."""
     choose_vacancy = State()      # Выбор вакансии (если несколько)
+    consent = State()             # Согласие на обработку персональных данных
     answering = State()           # Прохождение вопросов (текущий вопрос в FSM data)
     confirm = State()             # Подтверждение перед отправкой
 

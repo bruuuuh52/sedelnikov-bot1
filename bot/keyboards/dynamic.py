@@ -54,6 +54,15 @@ def build_confirm_keyboard() -> ReplyKeyboardMarkup:
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 
+def build_consent_keyboard() -> ReplyKeyboardMarkup:
+    """Клавиатура согласия на обработку персональных данных."""
+    builder = ReplyKeyboardBuilder()
+    builder.button(text="✅ Согласен, продолжить")
+    builder.button(text="❌ Не согласен")
+    builder.adjust(1, 1)
+    return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
+
+
 def build_vacancy_keyboard() -> InlineKeyboardMarkup:
     """Inline клавиатура выбора вакансии (если несколько)."""
     # Пока заглушка — используется из builders.py

@@ -129,7 +129,7 @@ questions:
 
   # Вопрос 8: Внешний вид (ИЗМЕНЁН ПОРЯДОК)
   - id: "appearance"
-    text: "8. Есть ли у Вас что-то из перечисленного списка?"
+    text: "8. Есть ли у Вас что-то из перечисленного списка? (если несколько — выберите один и укажите остальные вручную)"
     type: "choice"
     required: true
     save_to: "screening"
@@ -140,7 +140,8 @@ questions:
       "Цветные волосы (вся голова)": "colored_hair"
       "Дреды": "dreadlocks"
       "Пара-тройка цветных прядей": "colored_strands"
-    allow_custom: false
+    allow_custom: true
+    placeholder: "Например: татуировки и пирсинг / Дреды и цветные волосы"
 
   # Вопрос 9: Английский
   - id: "english_level"

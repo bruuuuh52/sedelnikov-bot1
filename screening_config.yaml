@@ -106,6 +106,35 @@ questions:
     min_value: 16
     max_value: 70
 
+  # Вопрос 7: Род занятий
+  - id: "occupation"
+    text: "7. Вы учитесь или работаете?"
+    type: "choice"
+    required: true
+    save_to: "screening"
+    options:
+      "Учусь": "student"
+      "Работаю": "employed"
+      "Учусь и работаю": "both"
+      "Ни то, ни другое": "none"
+    allow_custom: true
+
+  # Вопрос 8: Свободные вечера
+  - id: "free_evenings"
+    text: "8. Сколько у вас свободных вечеров в неделю?"
+    type: "choice"
+    required: true
+    save_to: "screening"
+    options:
+      "1": 1
+      "2": 2
+      "3": 3
+      "4": 4
+      "5": 5
+      "6": 6
+      "7 (каждый день)": 7
+    allow_custom: true
+
   # Вопрос 7: Выбор даты собеседования (варианты подгружаются из БД динамически)
   - id: "interview_date"
     text: "Когда Вам удобно пройти собеседование?"

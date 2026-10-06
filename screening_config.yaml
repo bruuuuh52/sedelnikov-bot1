@@ -137,7 +137,7 @@ questions:
 
   # Вопрос 7: Выбор даты собеседования (варианты подгружаются из БД динамически)
   - id: "interview_date"
-    text: "7."
+    text: "Когда Вам удобно пройти собеседование?"
     type: "choice"
     required: true
     save_to: "screening"

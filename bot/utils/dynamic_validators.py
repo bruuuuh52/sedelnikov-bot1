@@ -117,13 +117,14 @@ def format_answer_for_display(question: Question, value: Any) -> str:
 
 def get_question_prompt(question: Question) -> str:
     """Возвращает текст подсказки для вопроса."""
-    # Специальная обработка для вопроса даты собеседования - только кнопки без текста
+    # Специальная обработка для вопроса даты собеседования - текст вопроса + только кнопки (без "Варианты:")
     if question.id == "interview_date":
+        base = f"📋 <b>Вопрос:</b> {question.text}"
         if question.options:
             options_text = "\n".join(f"  • {label}" for label in question.options.keys())
-            return options_text
-        return ""
-    
+            base += f"\n{options_text}"
+        return base
+
     # Вопросы, для которых не показываем "Варианты:"
     skip_variants_label = {"nationality", "occupation", "free_evenings", "interview_date"}
     

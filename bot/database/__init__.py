@@ -1,4 +1,4 @@
-from bot.database.models import Base, Candidate, Vacancy, Screening, ScreeningStatus
+from bot.database.models import Base, Candidate, Vacancy, Screening, ScreeningStatus, InterviewSlot
 from bot.database.session import engine, async_session_maker, init_db, get_session
 from bot.database.crud import (
     get_or_create_candidate,
@@ -11,6 +11,8 @@ from bot.database.crud import (
     get_all_completed_screenings,
     create_vacancy,
     get_active_vacancies,
+    get_all_slots,
+    create_interview_slot,
 )
 
 __all__ = [
@@ -19,6 +21,7 @@ __all__ = [
     "Vacancy",
     "Screening",
     "ScreeningStatus",
+    "InterviewSlot",
     "engine",
     "async_session_maker",
     "init_db",
@@ -31,6 +34,8 @@ __all__ = [
     "get_screening_with_candidate",
     "get_candidate_screenings",
     "get_all_completed_screenings",
+    "get_all_slots",
+    "create_interview_slot",
     "create_vacancy",
     "get_active_vacancies",
 ]

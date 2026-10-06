@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
@@ -8,6 +9,10 @@ from bot.config import settings
 from bot.database import get_session, get_all_completed_screenings, get_screening_with_candidate, update_screening_step, get_all_slots, create_interview_slot
 from bot.keyboards import admin_candidate_keyboard
 from bot.database.models import ScreeningStatus, InterviewSlot
+from sqlalchemy import select
+
+logger = logging.getLogger(__name__)
+
 
 router = Router(name="admin")
 
@@ -138,12 +143,57 @@ async def process_admin_reject(callback: CallbackQuery):
     screening_id = int(callback.data.split(":")[2])
 
     async with get_session() as session:
+        from bot.database.crud import get_slot_by_id
+        from bot.database.models import InterviewSlot
+        
+        # Получаем скрининг с кандидатом и слотом
+        result = await session.execute(
+            select(Screening, Candidate, InterviewSlot)
+            .outerjoin(Candidate, Screening.candidate_id == Candidate.id)
+            .outerjoin(InterviewSlot, Screening.interview_slot_id == InterviewSlot.id)
+            .where(Screening.id == screening_id)
+        )
+        row = result.first()
+        
+        if not row:
+            await callback.answer("❌ Скрининг не найден", show_alert=True)
+            return
+        
+        screening, candidate, slot = row
+        
+        # Освобождаем слот, если он был забронирован
+        if slot and screening.interview_slot_id:
+            slot_result = await session.execute(select(InterviewSlot).where(InterviewSlot.id == screening.interview_slot_id))
+            slot = slot_result.scalar_one_or_none()
+            if slot and slot.booked_slots > 0:
+                slot.booked_slots -= 1
+                await session.flush()
+        
+        # Обновляем статус на REJECTED
         await update_screening_step(session, screening_id, status=ScreeningStatus.REJECTED)
         await session.commit()
 
-    await callback.answer("❌ Отклонён", show_alert=True)
+    # Отправляем уведомление кандидату
+    try:
+        from aiogram import Bot
+        from bot.config import settings
+        bot = Bot(token=settings.BOT_TOKEN.get_secret_value())
+        try:
+            await bot.send_message(
+                candidate.telegram_id,
+                "❌ <b>К сожалению, вам отказали в собеседовании.</b>\n\n"
+                "Спасибо за уделенное время и интерес к вакансии.\n"
+                "Если захотите попробовать снова — нажмите /start",
+                parse_mode="HTML",
+            )
+        finally:
+            await bot.session.close()
+    except Exception as e:
+        logger.error(f"Failed to send rejection notification to candidate {candidate.telegram_id}: {e}")
+
+    await callback.answer("❌ Отклонён. Уведомление отправлено кандидату, слот освобожден.", show_alert=True)
     await callback.message.edit_text(
-        callback.message.html_text + "\n\n❌ <b>Статус изменён на: REJECTED</b>",
+        callback.message.html_text + "\n\n❌ <b>Статус изменён на: REJECTED</b>\n✅ Уведомление отправлено, слот освобожден",
         parse_mode="HTML",
         reply_markup=admin_candidate_keyboard(screening_id),
     )

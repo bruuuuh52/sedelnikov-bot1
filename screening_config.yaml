@@ -60,15 +60,15 @@ questions:
     min_length: 10
     max_length: 20
 
-  # Вопрос 2: Telegram username
-  - id: "username"
-    text: "2. Укажите ваш Telegram username (например: ivan_ivanov или @ivan_ivanov)"
+  # Вопрос 2: ФИО
+  - id: "full_name"
+    text: "2. Укажите ваше ФИО"
     type: "text"
     required: true
     save_to: "candidate"
-    placeholder: "ivan_ivanov"
+    placeholder: "Иванов Иван Иванович"
     min_length: 3
-    max_length: 50
+    max_length: 100
 
   # Вопрос 3: Гражданство
   - id: "nationality"

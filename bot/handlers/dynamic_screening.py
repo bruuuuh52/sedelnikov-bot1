@@ -37,7 +37,7 @@ from bot.states.dynamic import (
     VACANCY_ID_KEY,
     CANDIDATE_ID_KEY,
 )
-from bot.database.models import Candidate, Screening, ScreeningStatus
+from bot.database.models import Candidate, Screening, ScreeningStatus, InterviewSlot
 from sqlalchemy import select
 
 router = Router(name="dynamic_screening")
@@ -234,10 +234,10 @@ async def _save_answer_and_next(message: Message, state: FSMContext, question, v
         if question.save_to == "candidate":
             if question.id == "phone":
                 await update_candidate_contacts(session, message.from_user.id, phone=value)
-            elif question.id == "username":
-                # username сохраняем в поле username кандидата
+            elif question.id == "full_name":
+                # full_name сохраняем в поле full_name кандидата
                 candidate = await get_or_create_candidate(session, telegram_id=message.from_user.id)
-                candidate.username = value
+                candidate.full_name = value
         else:
             await update_screening_step(session, screening_id, **{question.id: value})
         await session.commit()
@@ -275,7 +275,7 @@ async def _notify_admins_about_booking(session, screening_id: int, slot, candida
     
     admin_text = (
         f"📅 <b>Запись на собеседование!</b>\n\n"
-        f"👤 <b>Кандидат:</b> @{cand.username or '—'}\n"
+        f"👤 <b>Кандидат:</b> {cand.full_name or '—'}\n"
         f"🆔 <b>TG ID:</b> <code>{cand.telegram_id}</code>\n"
         f"📞 <b>Телефон:</b> {cand.phone or '—'}\n"
         f"📅 <b>Дата:</b> {date_str}\n"
@@ -437,6 +437,38 @@ async def process_confirm(message: Message, state: FSMContext):
     config = get_config()
     if config.final_message:
         await message.answer(config.final_message, parse_mode="HTML")
+
+
+@router.message(ScreeningStates.confirm, F.text == "❌ Отказаться от собеседования")
+async def process_decline(message: Message, state: FSMContext):
+    """Кандидат отказался от собеседования — освобождаем слот."""
+    data = await state.get_data()
+    screening_id = data.get(SCREENING_ID_KEY)
+
+    async with get_session() as session:
+        from sqlalchemy import select
+        result = await session.execute(select(Screening).where(Screening.id == screening_id))
+        screening = result.scalar_one_or_none()
+        
+        if screening and screening.interview_slot_id:
+            # Освобождаем слот
+            slot_result = await session.execute(select(InterviewSlot).where(InterviewSlot.id == screening.interview_slot_id))
+            slot = slot_result.scalar_one_or_none()
+            if slot and slot.booked_slots > 0:
+                slot.booked_slots -= 1
+                await session.flush()
+                logger.info(f"Slot {slot.id} freed by candidate {screening_id}")
+
+        if screening:
+            await session.delete(screening)
+            await session.commit()
+
+    await state.clear()
+    await message.answer(
+        "❌ Вы отказались от собеседования. Слот освобожден.\n"
+        "Если передумаете — нажмите /start",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 @router.message(ScreeningStates.confirm, F.text == "🔄 Начать заново")

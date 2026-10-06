@@ -48,9 +48,10 @@ def build_confirm_keyboard() -> ReplyKeyboardMarkup:
     """Клавиатура подтверждения (финальный шаг)."""
     builder = ReplyKeyboardBuilder()
     builder.button(text="✅ Всё верно, отправить")
+    builder.button(text="❌ Отказаться от собеседования")
     builder.button(text="🔄 Начать заново")
     builder.button(text="❌ Отмена")
-    builder.adjust(1, 1, 1)
+    builder.adjust(1, 1, 1, 1)
     return builder.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 

@@ -70,9 +70,19 @@ questions:
     min_length: 3
     max_length: 100
 
-  # Вопрос 3: Гражданство
+  # Вопрос 3: Telegram username
+  - id: "username"
+    text: "3. Укажите ваш Telegram username (например: ivan_ivanov или @ivan_ivanov)"
+    type: "text"
+    required: true
+    save_to: "candidate"
+    placeholder: "ivan_ivanov"
+    min_length: 3
+    max_length: 50
+
+  # Вопрос 4: Гражданство
   - id: "nationality"
-    text: "3. Какое у Вас гражданство?"
+    text: "4. Какое у Вас гражданство?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -81,9 +91,9 @@ questions:
       "Другое": "other"
     allow_custom: false
 
-  # Вопрос 4: Опыт работы
+  # Вопрос 5: Опыт работы
   - id: "experience"
-    text: "4. Был ли опыт работы в подобной сфере?"
+    text: "5. Был ли опыт работы в подобной сфере?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -93,9 +103,9 @@ questions:
     allow_custom: true
     placeholder: "Например: Да, работал в театре 2 года / Нет опыта, но быстро учусь"
 
-  # Вопрос 5: Email
+  # Вопрос 6: Email
   - id: "email"
-    text: "5. Напишите Ваш email адрес"
+    text: "6. Напишите Ваш email адрес"
     type: "text"
     required: true
     save_to: "screening"
@@ -103,9 +113,9 @@ questions:
     min_length: 5
     max_length: 255
 
-  # Вопрос 6: Возраст
+  # Вопрос 7: Возраст
   - id: "age"
-    text: "6. Укажите Ваш возраст"
+    text: "7. Укажите Ваш возраст"
     type: "number"
     required: true
     save_to: "screening"
@@ -113,9 +123,9 @@ questions:
     max_value: 70
     placeholder: "Например: 29"
 
-  # Вопрос 7: Род занятий
+  # Вопрос 8: Род занятий
   - id: "occupation"
-    text: "7. Вы учитесь или работаете?"
+    text: "8. Вы учитесь или работаете?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -127,9 +137,9 @@ questions:
     allow_custom: true
     placeholder: "Например: Учусь в колледже на 2 курсе / Работаю официантом по вечерам"
 
-  # Вопрос 8: Внешний вид (ИЗМЕНЁН ПОРЯДОК)
+  # Вопрос 9: Внешний вид
   - id: "appearance"
-    text: "8. Есть ли у Вас что-то из перечисленного списка? (если несколько — выберите один и укажите остальные вручную)"
+    text: "9. Есть ли у Вас что-то из перечисленного списка? (если несколько — выберите один и укажите остальные вручную)"
     type: "choice"
     required: true
     save_to: "screening"
@@ -143,9 +153,9 @@ questions:
     allow_custom: true
     placeholder: "Например: татуировки и пирсинг / Дреды и цветные волосы"
 
-  # Вопрос 9: Английский
+  # Вопрос 10: Английский
   - id: "english_level"
-    text: "9. Ваш уровень английского?"
+    text: "10. Ваш уровень английского?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -155,9 +165,9 @@ questions:
       "Вообще не знаю": "none"
     allow_custom: false
 
-  # Вопрос 10: Свободные вечера
+  # Вопрос 11: Свободные вечера
   - id: "free_evenings"
-    text: "10. Сколько у вас свободных вечеров в неделю?"
+    text: "11. Сколько у вас свободных вечеров в неделю?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -172,9 +182,9 @@ questions:
     allow_custom: true
     placeholder: "Например: 3-4 вечера / Только выходные"
 
-  # Вопрос 11: Выбор даты собеседования (варианты подгружаются из БД динамически)
+  # Вопрос 12: Выбор даты собеседования (варианты подгружаются из БД динамически)
   - id: "interview_date"
-    text: "11. Выберите удобную дату для собеседования:"
+    text: "12. Выберите удобную дату для собеседования:"
     type: "choice"
     required: true
     save_to: "screening"

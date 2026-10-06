@@ -50,36 +50,36 @@ final_message: |
 # --- ВОПРОСЫ АНКЕТЫ ---
 questions:
 
-  # Вопрос 1: Телефон
+  # № 1: Телефон
   - id: "phone"
-    text: "1. Укажите ваш номер телефона"
+    text: "№1. Укажите ваш номер телефона"
     type: "text"
     required: true
     save_to: "candidate"
     min_length: 10
     max_length: 20
 
-  # Вопрос 2: ФИО
+  # № 2: ФИО
   - id: "full_name"
-    text: "2. Укажите ваше ФИО"
+    text: "№2. Укажите ваше ФИО"
     type: "text"
     required: true
     save_to: "candidate"
     min_length: 3
     max_length: 100
 
-  # Вопрос 3: Telegram username
+  # № 3: Telegram username
   - id: "username"
-    text: "3. Укажите ваш Telegram username"
+    text: "№3. Укажите ваш Telegram username"
     type: "text"
     required: true
     save_to: "candidate"
     min_length: 3
     max_length: 50
 
-  # Вопрос 4: Гражданство
+  # № 4: Гражданство
   - id: "nationality"
-    text: "4. Какое у Вас гражданство?"
+    text: "№4. Какое у Вас гражданство?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -88,27 +88,27 @@ questions:
       "Другое": "other"
     allow_custom: false
 
-  # Вопрос 5: Email
+  # № 5: Email
   - id: "email"
-    text: "5. Напишите Ваш email адрес"
+    text: "№5. Напишите Ваш email адрес"
     type: "text"
     required: true
     save_to: "screening"
     min_length: 5
     max_length: 255
 
-  # Вопрос 6: Возраст
+  # № 6: Возраст
   - id: "age"
-    text: "6. Укажите Ваш возраст"
+    text: "№6. Укажите Ваш возраст"
     type: "number"
     required: true
     save_to: "screening"
     min_value: 16
     max_value: 70
 
-  # Вопрос 7: Род занятий
+  # № 7: Род занятий
   - id: "occupation"
-    text: "7. Вы учитесь или работаете?"
+    text: "№7. Вы учитесь или работаете?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -119,9 +119,9 @@ questions:
       "Ни то, ни другое": "none"
     allow_custom: true
 
-  # Вопрос 8: Свободные вечера
+  # № 8: Свободные вечера
   - id: "free_evenings"
-    text: "8. Сколько у вас свободных вечеров в неделю?"
+    text: "№8. Сколько у вас свободных вечеров в неделю?"
     type: "choice"
     required: true
     save_to: "screening"
@@ -135,7 +135,7 @@ questions:
       "7 (каждый день)": 7
     allow_custom: true
 
-  # Вопрос 9: Выбор даты собеседования (варианты подгружаются из БД динамически)
+  # № 9: Выбор даты собеседования (варианты подгружаются из БД динамически)
   - id: "interview_date"
     text: "№9. Когда Вам удобно пройти собеседование"
     type: "choice"

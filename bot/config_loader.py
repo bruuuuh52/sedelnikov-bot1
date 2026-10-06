@@ -139,6 +139,12 @@ def reload_config(path: str | Path = "screening_config.yaml") -> ScreeningConfig
     return _config
 
 
+def clear_config_cache() -> None:
+    """Сбрасывает кэш конфига, заставляя перезагрузить при следующем вызове get_config()."""
+    global _config
+    _config = None
+
+
 # Русские названия месяцев и дней недели (для форматирования дат без зависимости от локали)
 RU_MONTHS = {
     1: "января", 2: "февраля", 3: "марта", 4: "апреля",

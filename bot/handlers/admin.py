@@ -9,7 +9,7 @@ from bot.config import settings
 from bot.database import get_session, get_all_completed_screenings, get_screening_with_candidate, update_screening_step, get_all_slots, create_interview_slot
 from bot.keyboards import admin_candidate_keyboard
 from bot.database.models import ScreeningStatus, InterviewSlot
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,29 @@ async def cmd_stats(message: Message):
         f"📝 Активных вакансий: {active_vacancies}"
     )
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(Command("clear_completed"))
+async def cmd_clear_completed(message: Message):
+    """Удалить все завершённые скрининги (COMPLETED и REJECTED)."""
+    if not _is_admin(message.from_user.id):
+        await message.answer("❌ Нет доступа.")
+        return
+
+    async with get_session() as session:
+        from sqlalchemy import delete
+        from bot.database.models import Screening, ScreeningStatus
+
+        # Удаляем все завершённые и отклонённые скрининги
+        result = await session.execute(
+            delete(Screening).where(
+                Screening.status.in_([ScreeningStatus.COMPLETED, ScreeningStatus.REJECTED])
+            )
+        )
+        deleted_count = result.rowcount
+        await session.commit()
+
+    await message.answer(f"✅ Удалено завершённых скринингов: {deleted_count}")
 
 
 @router.message(Command("slots"))

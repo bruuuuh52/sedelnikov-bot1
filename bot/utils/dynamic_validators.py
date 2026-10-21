@@ -53,7 +53,7 @@ def validate_answer(question: Question, text: str) -> Optional[Any]:
                     if 0 <= val <= 50:
                         return val
                 return None  # Нет цифр или вне диапазона
-            # Для free_evenings и остальных - текст как есть
+            # Для free_evenings, interview_offer и остальных - текст как есть
             return text
         return None
 

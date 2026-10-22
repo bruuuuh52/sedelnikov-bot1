@@ -411,37 +411,31 @@ async def process_confirm(message: Message, state: FSMContext):
 
             for q in config.questions:
                 value = answers.get(q.id)
-                if value is not None:
-                    # Get the question number (1-based index)
-                    q_num = config.questions.index(q) + 1
-                    q_text = q.text.replace('№', '').replace('Вопрос', '').strip()
-                    
-                    # Special handling for interview_offer (Q9) - show only selected option text
-                    if q.id == "interview_offer":
-                        selected_text = "продолжить" if value == "continue" else "отказаться"
-                        admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').strip()}</b>\n  {selected_text}")
-                    
-                    # Special handling for interview_date (last question) - show only the selected date
-                    elif q.id == "interview_date":
-                        selected_label = str(value)
-                        if q.options and str(value) in q.options:
-                            selected_label = list(q.options.keys())[list(q.options.values()).index(str(value))]
-                        else:
-                            selected_label = str(value)
-                        admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').strip()}</b>\n  {selected_label}")
-                    
+                if value is None:
+                    continue
+                # Skip interview_offer question entirely from admin notification
+                if q.id == "interview_offer":
+                    continue
+                q_num = config.questions.index(q) + 1
+                q_text = q.text.replace('№', '').replace('Вопрос', '').strip()
+                
+                # Special handling for interview_date - show only the selected date
+                if q.id == "interview_date":
+                    selected_label = str(value)
+                    if q.options and str(value) in q.options:
+                        selected_label = list(q.options.keys())[list(q.options.values()).index(str(value))]
                     else:
-                        # Clean up the display for all other questions
-                        formatted = format_answer_for_display(q, value)
-                        
-                        # Clean up question text
-                        q_text = q.text.replace('№', '').replace('Вопрос', '').replace('Вопрос', '').strip()
-                        
-                        if q.type == "choice" and q.id not in ["nationality", "occupation", "free_evenings", "interview_date"]:
-                            # For questions with options, show nicely
-                            admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
-                        else:
-                            admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
+                        selected_label = str(value)
+                    admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').strip()}</b>\n  {selected_label}")
+                    continue
+                
+                # Clean up question text
+                q_text = q.text.replace('№', '').replace('Вопрос', '').strip()
+                
+                if q.type == "choice" and q.id not in ["nationality", "occupation", "free_evenings", "interview_date"]:
+                    admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
+                else:
+                    admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
 
             admin_text = "\n".join(admin_lines)
 

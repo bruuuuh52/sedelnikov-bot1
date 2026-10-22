@@ -44,6 +44,25 @@ from sqlalchemy import select
 router = Router(name="dynamic_screening")
 
 
+# --- Вспомогательная функция для отправки вопроса ---
+
+async def _send_question(message: Message, state: FSMContext, question, candidate: Candidate):
+    """Отправляет вопрос пользователю с соответствующей клавиатурой."""
+    # Если это вопрос выбора даты собеседования — обновляем варианты из БД
+    if question.id == "interview_date":
+        await update_interview_date_options()
+    
+    # Сохраняем индекс текущего вопроса
+    config = get_config()
+    q_index = config.questions.index(question)
+    await state.update_data({QUESTION_INDEX_KEY: q_index})
+
+    prompt = get_question_prompt(question)
+    keyboard = build_question_keyboard(question)
+
+    await message.answer(prompt, parse_mode="HTML", reply_markup=keyboard)
+
+
 # --- Вспомогательная функция для форматирования ответов ---
 
 def _format_answers_for_display(config, answers: dict, candidate=None) -> str:
@@ -80,7 +99,11 @@ async def _show_confirmation(message: Message, state: FSMContext, screening: Scr
     
     lines = ["📋 <b>Проверь свои данные:</b>\n"]
     
-    for q in get_config().questions:
+    for q in config.questions:
+        # Skip interview_offer question (Q9) from candidate's view
+        if q.id == "interview_offer":
+            continue
+            
         value = get_answers(await state.get_data()).get(q.id)
         if value is not None:
             formatted = format_answer_for_display(q, value)

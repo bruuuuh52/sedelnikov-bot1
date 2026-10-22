@@ -19,6 +19,7 @@ class Base(DeclarativeBase):
 
 class ScreeningStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
+    PENDING_ADMIN = "pending_admin"
     COMPLETED = "completed"
     REJECTED = "rejected"
 

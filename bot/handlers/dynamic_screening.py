@@ -416,8 +416,9 @@ async def process_confirm(message: Message, state: FSMContext):
                 # Skip interview_offer question entirely from admin notification
                 if q.id == "interview_offer":
                     continue
-                q_num = config.questions.index(q) + 1
-                q_text = q.text.replace('№', '').replace('Вопрос', '').strip()
+                
+                # Get formatted answer for display
+                formatted = format_answer_for_display(q, value)
                 
                 # Special handling for interview_date - show only the selected date
                 if q.id == "interview_date":
@@ -432,10 +433,7 @@ async def process_confirm(message: Message, state: FSMContext):
                 # Clean up question text
                 q_text = q.text.replace('№', '').replace('Вопрос', '').strip()
                 
-                if q.type == "choice" and q.id not in ["nationality", "occupation", "free_evenings", "interview_date"]:
-                    admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
-                else:
-                    admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('Вопрос ', '').replace('Вопрос', '').strip()}</b>\n  {formatted}")
+                admin_lines.append(f"🔹 <b>№{config.questions.index(q)+1}. {q.text.replace('№', '').strip()}</b>\n  {formatted}")
 
             admin_text = "\n".join(admin_lines)
 

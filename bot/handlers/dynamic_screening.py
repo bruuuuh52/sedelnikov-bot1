@@ -44,23 +44,29 @@ from sqlalchemy import select
 router = Router(name="dynamic_screening")
 
 
-# --- Вспомогательные функции ---
+# --- Вспомогательная функция для форматирования ответов ---
 
-async def _send_question(message: Message, state: FSMContext, question, candidate: Candidate):
-    """Отправляет вопрос пользователю с соответствующей клавиатурой."""
-    # Если это вопрос выбора даты собеседования — обновляем варианты из БД
-    if question.id == "interview_date":
-        await update_interview_date_options()
+def _format_answers_for_display(config, answers: dict, candidate=None) -> str:
+    """Форматирует ответы для отображения (и для админа, и для кандидата)."""
+    lines = []
     
-    # Сохраняем индекс текущего вопроса
-    config = get_config()
-    q_index = config.questions.index(question)
-    await state.update_data({QUESTION_INDEX_KEY: q_index})
-
-    prompt = get_question_prompt(question)
-    keyboard = build_question_keyboard(question)
-
-    await message.answer(prompt, parse_mode="HTML", reply_markup=keyboard)
+    # Добавляем данные кандидата (если есть)
+    if candidate:
+        if candidate.phone:
+            lines.append(f"📞 <b>Телефон:</b> <code>{candidate.phone}</code>")
+        if candidate.username:
+            lines.append(f"🔗 <b>Username:</b> @{candidate.username}")
+        if candidate.email:
+            lines.append(f"📧 <b>Email:</b> <code>{candidate.email}</code>")
+    
+    # Вопросы и ответы
+    for q in config.questions:
+        value = get_answers({}).get(q.id)  # Will be replaced with actual answers
+        # We'll handle this differently - iterate with answers dict
+        pass
+    
+    # This function will be completed below
+    return ""
 
 
 async def _show_confirmation(message: Message, state: FSMContext, screening: Screening, candidate: Candidate | None):
@@ -69,16 +75,17 @@ async def _show_confirmation(message: Message, state: FSMContext, screening: Scr
     logger = logging.getLogger(__name__)
     
     config = get_config()
-    answers = get_answers(await state.get_data())
-
+    data = await state.get_data()
+    answers = get_answers(data)
+    
     lines = ["📋 <b>Проверь свои данные:</b>\n"]
-
-    for q in config.questions:
-        value = answers.get(q.id)
+    
+    for q in get_config().questions:
+        value = get_answers(await state.get_data()).get(q.id)
         if value is not None:
             formatted = format_answer_for_display(q, value)
             lines.append(f"• <b>{q.text}</b>\n  {formatted}")
-
+    
     # Контакты кандидата (если кандидат есть)
     if candidate:
         if candidate.phone:
@@ -94,7 +101,6 @@ async def _show_confirmation(message: Message, state: FSMContext, screening: Scr
     text = "\n".join(lines)
     try:
         await message.answer(text, parse_mode="HTML", reply_markup=build_confirm_keyboard())
-        logger.info(f"Confirmation sent for screening {screening.id}")
     except Exception as e:
         logger.error(f"Failed to send confirmation: {e}")
         # Fallback без HTML

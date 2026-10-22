@@ -96,6 +96,13 @@ def format_answer_for_display(question: Question, value: Any) -> str:
                 return label
         return str(value)
 
+    # Для interview_offer показываем текст выбранной кнопки
+    if question.id == "interview_offer":
+        for label, val in question.options.items():
+            if val == value:
+                return label
+        return str(value)
+
     if question.type == "choice":
         # Найти label по value
         for label, val in question.options.items():
